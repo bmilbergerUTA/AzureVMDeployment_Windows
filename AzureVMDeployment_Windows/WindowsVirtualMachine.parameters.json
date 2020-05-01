@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "virtualMachineName": {
-      "value": "vm-itops-test1"
+      "value": "vm-itops-test"
     },
     "virtualMachineRG": {
       "value": "rg-itops-servers"
