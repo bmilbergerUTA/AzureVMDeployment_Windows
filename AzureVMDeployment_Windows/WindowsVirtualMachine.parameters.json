@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "virtualMachineName": {
+      "value": "vm-itops-test1"
+    },
+    "virtualMachineRG": {
+      "value": "rg-itops-servers"
+    },
+    "virtualMachineSize": {
+      "value": "Standard_DS2_v2"
+    },
+    "adminUsername": {
+      "value": "secadmin"
+    },
+    "adminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/87b05aa9-93bd-4046-8646-17138427d3a4/resourceGroups/rg-itops-automation/providers/Microsoft.KeyVault/vaults/kv-itops-serverstandard"
+        },
+        "secretName": "LocalAdminPWsecadmin"
+      }
+    }
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "westus2"
+    },
+    "virtualMachineName": {
+      "type": "string"
+    },
+    "virtualMachineRG": {
+      "type": "string"
+    },
+    "timeZone": {
+      "type": "string",
+      "defaultValue": "Pacific Standard Time"
+    },
+    "osDiskType": {
+      "type": "string",
+      "defaultValue": "Premium_LRS"
+    },
+    "osVersion": {
+      "type": "string",
+      "defaultValue": "2019-Datacenter",
+      "allowedValues": [
+        "2016-Datacenter",
+        "2019-Datacenter"
+      ],
+      "metadata": {
+        "description": "Windows OS version. Allowed values are 2019-Datacenter and 2016-Datacenter."
+      }
+    },
+    "virtualMachineSize": {
+      "type": "string",
+      "defaultValue": "Standard_DS2_v2"
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "secureString"
+    }
+  },
+  "variables": {
+    "virtualNetworkId": "/subscriptions/87b05aa9-93bd-4046-8646-17138427d3a4/resourceGroups/rg-itops-hub/providers/Microsoft.Network/virtualNetworks/vnet-itops-hub",
+    "subnetName": "subnet-itops-hub-servers",
+    "vnetId": "[variables('virtualNetworkId')]",
+    "subnetRef": "[concat(variables('vnetId'), '/subnets/', variables('subnetName'))]",
+    "networkInterfaceName": "[concat(parameters('virtualMachineName'), '-nic01')]",
+    "backupVaultName": "vault-itops-us",
+    "backupFabricName": "Azure",
+    "backupVaultRGName": "rg-itops-backup",
+    "backupVaultRGIsNew": false,
+    "backupPolicyName": "DefaultPolicy",
+    "backupItemName": "[concat('VM;iaasvmcontainerv2;', variables('backupVaultRGName'), ';', parameters('virtualMachineName'))]",
+    "backupContainerName": "[concat('iaasvmcontainerv2;', variables('backupVaultRGName'), ';', parameters('virtualMachineName'))]",
+    "diagnosticsStorageAccountName": "rgitopsserversdiag",
+    "diagnosticsStorageAccountId": "/subscriptions/87b05aa9-93bd-4046-8646-17138427d3a4/resourceGroups/rg-itops-servers/providers/Microsoft.Storage/storageAccounts/rgitopsserversdiag",
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "keyVaultRG": "rg-itops-automation",
+    "keyVaultName": "kv-itops-serverstandard",
+    "secretUrlWithVersion1": "https://kv-itops-serverstandard.vault.azure.net/secrets/ServerStandardCert/b059a803facb46458d05c6bd632347bb",
+    "automationAccountName": "auto-itops-update",
+    "automationAccountRG": "rg-itops-automation",
+    "automationAccountId": "[resourceId(variables('automationAccountRG'), 'Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+  },
+  "resources": [
+    {
+      "name": "[variables('networkInterfaceName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-07-01",
+      "location": "[parameters('location')]",
+      "dependsOn": [],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('virtualMachineName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-07-01",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('networkInterfaceName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('virtualMachineSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "fromImage",
+            "managedDisk": {
+              "storageAccountType": "[parameters('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('osVersion')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "adminPassword": "[parameters('adminPassword')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "computerName": "[parameters('virtualMachineName')]",
+          "windowsConfiguration": {
+            "enableAutomaticUpdates": true,
+            "provisionVmAgent": true,
+            "timeZone": "[parameters('timeZone')]"
+          },
+          "secrets": [
+            {
+              "sourceVault": {
+                "id": "[resourceId(variables('keyVaultRG'), 'Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+              },
+              "vaultCertificates": [
+                {
+                  "certificateUrl": "[variables('secretUrlWithVersion1')]",
+                  "certificateStore": "My"
+                }
+              ]
+            }
+          ]
+        },
+        "licenseType": "Windows_Server",
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat('https://', variables('diagnosticsStorageAccountName'), '.blob.core.windows.net/')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "adminUsername": {
+      "type": "string",
+      "value": "[parameters('adminUsername')]"
+    }
+  }
+}
